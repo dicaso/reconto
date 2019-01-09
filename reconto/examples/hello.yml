@@ -1,0 +1,14 @@
+---
+exenv: docker://reconto
+
+data:
+  - &data1 world
+
+scripts:
+  - &program1 echo
+  - &program2 cat
+
+workflow:
+  - [*program1, *data1, &result1]
+  - [*program2, *result1]
+...
