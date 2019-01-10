@@ -35,3 +35,18 @@ out to the results subfolder of the research compendium.
 docker image version 1. It can also be a tagged list, then the first
 listed environment is the default, and all others can be mentioned
 after a program in the `scripts` section.
+
+## Dependencies
+### pipenv
+
+Python execution environments are set with `pipenv`. Install with
+`brew install pipenv`, or see the
+[documentation](https://pipenv.readthedocs.io/en/latest).
+
+### Docker
+
+Docker should already be active on your system (dockerd daemon
+running). Your user should have been added to the docker group:
+`sudo usermod -aG docker $USER`. If group still needs to be created:
+`sudo groupadd docker`. You have to log out and in for this change to
+take effect.

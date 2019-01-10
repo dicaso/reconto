@@ -1,8 +1,10 @@
 from setuptools import setup, find_packages
+from setuptools.command.install import install
+import shutil, logging
 
 package = "reconto"
 version = "0.0.1"
-
+        
 setup(name = package,
       version = version,
       description="REsearch COmpendium memeNTO",
@@ -13,8 +15,10 @@ setup(name = package,
       packages = find_packages(),
       install_requires = [
           'pyyaml',
+          #'sh',
           'plumbum',
-          'docker'
+          'docker',
+          'gitpython'
       ],
       extras_require = {
           'dev':  ["ipython"],
