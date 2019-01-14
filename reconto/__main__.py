@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """reconto module defining CLI interface"""
-import argparse
+import argparse, os
 from reconto import Reconto
 
 def prepareParser():
@@ -55,9 +55,34 @@ def prepareParser():
     )
     return parser
 
+def search_reco():
+    path = os.getcwd()
+    while not os.path.exists(os.path.join(path,'reconto.yml')):
+        if path == '/':
+            raise FileNotFoundError(
+                'Current directory or upstream directory is not a reconto repository'
+            )
+        path = os.path.dirname(path)
+    return path
+                
 def main(args=None):
     parser = prepareParser()
     args = parser.parse_args(args)
     if args.selectedparser == 'new':
-        reco = Reconto(path = args.path)
+        reco = Reconto(path = args.path, init = True)
         print(reco)
+    elif args.selectedparser == 'add':
+        if not args.path:
+            args.path = search_reco()
+        reco = Reconto(path = args.path)
+        reco.add(
+            command = args.command,
+            exenv = args.exenv,
+            datasources = args.datasources.split(',') if args.datasources else [],
+            results = args.results.split(',') if args.results else []
+        )
+    elif args.selectedparser == 'commit':
+        if not args.path:
+            args.path = search_reco()
+        reco = Reconto(path = args.path)
+        reco.commit(args.message)
