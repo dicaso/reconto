@@ -37,6 +37,19 @@ class Exenv(abc.ABC):
     def stop_environment(self):
         pass
 
+    def __enter__(self):
+        self.load_environment()
+        return self
+        
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.stop_environment()
+
+    @staticmethod
+    def get_env(uid,reco):
+        if uid.startswith('pyenv'): return Pyenv(uid,reco)
+        elif uid.startswith('docker'): return Docker(uid,reco)
+        else: raise NotImplementedError('in future should allow registering 3rd party env')
+
 class Pyenv(Exenv):
     """Python execution environment"""
     _uid_regex = re.compile(r'(?P<typenv>pyenv)://(?P<pyver>py\d\.\d)/(?P<uid>\w\S+)')
@@ -76,12 +89,24 @@ class Docker(Exenv):
         self.client = docker.from_env()
 
     def execute_command(self, command, *args):
+        from docker.errors import ImageNotFound
         if args and type(command) is str:
             command += ' '+' '.join(args)
         elif type(command) is not str:
             command = ' '.join(command) + ' ' + ' '.join(args)
-        self.container = self.client.containers.create(self.uid, command)
+        try:
+            self.image = self.client.images.get(self.uid)
+        except ImageNotFound:
+            self.image = self.client.images.pull(self.uid)
+        self.container = self.client.containers.create(
+            self.uid, command,
+            volumes={
+                os.path.join(self.reco.path,'data'):{'bind':'/data','mode':'ro'},
+                os.path.join(self.reco.path,'results'):{'bind':'/results','mode':'rw'},
+            }
+        )
         self.container.start()
 
     def stop_environment(self):
         self.container.stop()
+        del self.client, self.image, self.container
