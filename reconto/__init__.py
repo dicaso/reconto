@@ -25,6 +25,8 @@ class Reconto(object):
         else:
             try:
                 os.mkdir(path)
+                for subdir in ('data','results','exenv'):
+                    os.mkdir(os.path.join(path,subdir))
             except FileNotFoundError:
                 logging.error(
                     'Parent directory "%s" does not exist',
@@ -49,7 +51,8 @@ class Reconto(object):
     annotations = {
         'script': re.compile(r'@(?P<exenv>\S+)@(?P<script>\S+)'),
         'datasource': re.compile(r'@(?P<datasource>\S*)@(?P<filepath>\S+?)(?P<include>@?)'),
-        'result': re.compile(r'=(?P<result>\S*)=(?P<filepath>\S+?)(?P<include>=?)')
+        'result': re.compile(r'=(?P<result>\S*)=(?P<filepath>\S+?)(?P<include>=?)'),
+        'special': {'%IN%':'<', '%OUT%':'>', '%PIPE%':'|'}
     }
         
     def add(self, command, exenv=None, datasources = [], results = []):
@@ -184,7 +187,8 @@ class Reconto(object):
         from reconto.exenv import Exenv
         for step in self.config['workflow']:
             env, command = Reconto.annotations['script'].fullmatch(step[0]).groups()
-            exenv = Exenv.get_env(env,reco)
+            step[0] = command
+            exenv = Exenv.get_env(env,self)
             datasources = {
                 i: Reconto.annotations['datasource'].fullmatch(se).groupdict()
                 for i,se in enumerate(step) if i and
@@ -195,10 +199,35 @@ class Reconto(object):
                 for i,se in enumerate(step) if i and
                 Reconto.annotations['result'].fullmatch(se)
             }
-            if cached:
-                pass #TODO check if results are there if true continue
+            for ds in datasources:
+                if not os.path.exists(
+                        os.path.join(self.path,'data',datasources[ds]['filepath'])
+                ):
+                    #TODO retrieve datasource
+                    raise FileNotFoundError('datasource not available',datasources[ds])
+                step[ds] = exenv.get_env_data_filepath(datasources[ds]['filepath'])
+            all_resultfiles_present = True
+            for r in results:
+                step[r] = exenv.get_env_result_filepath(results[r]['filepath'])
+                if not os.path.exists(
+                        os.path.join(self.path,'results',results[r]['filepath'])
+                ):
+                    all_resultfiles_present = False
+            if cached and all_resultfiles_present:
+                #TODO check if scriptfile has not changed
+                continue
             with exenv:
                 exenv.execute_command(step)
+            # Check if all result files have been generated after executing step
+            #TODO exenv should also return exit code for checking
+            all_resultfiles_present = True
+            for r in results:
+                if not os.path.exists(
+                        os.path.join(self.path,'results',results[r]['filepath'])
+                ):
+                    all_resultfiles_present = False
+            if not all_resultfiles_present:
+                raise RuntimeError('workflow step has failed to produce all expected result files',step)
 
     def commit(self,message):
         """commit new workflow steps to the research compendium
